@@ -1,59 +1,48 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 function ImageGallery({ images }) {
-    // Use browser console and console.log() for debugging
-    const arrayChunk = (arr, n) => {
-        const array = arr.slice();
-        const chunks = [];
-        while (array.length) chunks.push(array.splice(0, n));
-        return chunks;
-      };
-      
-    return <div>
-        {arrayChunk(images, 3).map((row,i) =>(
-            <div key={i} className="row mx-auto">
-                {row.map((col, i) =>(
-                    <LazyImg key={i} src={col} height="200px" width="200px" loading="lazy"/>
-                ))}
-                </div>
-        ))}
-    </div>;
+  const [visibleImages, setVisibleImages] = useState([]);
+  const imageRefs = useRef([]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = imageRefs.current.indexOf(entry.target);
+            if (index !== -1) {
+              setVisibleImages((prevVisibleImages) => [
+                ...prevVisibleImages,
+                index
+              ]);
+              observer.unobserve(entry.target);
+            }
+          }
+        });
+      },
+      { rootMargin: "100px 0px" }
+    );
+    imageRefs.current.forEach((imageRef) => observer.observe(imageRef));
+    return () => {
+      observer.disconnect();
+    };
+  }, [images]);
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap" }}>
+      {images.map((imageUrl, index) => (
+        <img
+          key={index}
+          src={visibleImages.includes(index) ? imageUrl : ""}
+          alt=""
+          width={200}
+          height={200}
+          ref={(ref) => (imageRefs.current[index] = ref)}
+          style={{ margin: "2px" }}
+        />
+      ))}
+    </div>
+  );
 }
 
-const LazyImg = props => {
-    const [inView, setInView] = React.useState(false);
-    const placeholderRef = React.useRef();
-    const placeholder = ""
-
-
-    React.useEffect(() => {
-        const observer = new IntersectionObserver((entries, obs) => {
-        for (const entry of entries) {
-            if (entry.isIntersecting) {
-                setInView(true);
-                obs.disconnect();
-            }
-        }
-   }, {});
-    observer.observe(placeholderRef.current);
-    return () => {
-        observer.disconnect();
-    }
-}, []);
-return (
-    inView ? <img {...props} alt={props.alt || ""} /> : <img {...props} ref={placeholderRef} src={placeholder} alt={props.alt || ""} />
-)
-};
-
-
 export default ImageGallery;
-
-    // Each entry describes an intersection change for one observed
-    // target element:
-    //   entry.boundingClientRect
-    //   entry.intersectionRatio
-    //   entry.intersectionRect
-    //   entry.isIntersecting
-    //   entry.rootBounds
-    //   entry.target
-    //   entry.time
